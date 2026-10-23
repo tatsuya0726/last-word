@@ -1,0 +1,13 @@
+{
+  "name": "last-word",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "古地図・単語合成・エリア縮小を組み合わせた一人用ローグライク",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check dist/app.js && node --check dist/engine.js && node --check dist/world.js",
+    "dev": "node tools/serve.mjs"
+  },
+  "dependencies": { "phaser": "3.90.0" }
+}
