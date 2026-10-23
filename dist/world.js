@@ -2,7 +2,7 @@ import {MAPS,NODE_TYPES} from './data.js';
 import {radius,fogDamage} from './engine.js';
 
 const ASSETS=['map-fire','map-ice','map-rift','hero','hero-f','wolf','plant','bird','spirit','golem','dragon','wyvern','boss','grass','volcano','snow','cave'];
-let current=null,selected=null,onSelect=()=>{},sceneRef=null,ready=false,viewKey='';
+let current=null,selected=null,onSelect=()=>{},sceneRef=null,ready=false;
 let mapView={x:.5,y:.5,zoom:1},lastMap=null,lastNode=null;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 export function setWorld(s,selection,callback){
@@ -28,7 +28,7 @@ export function bootWorld(){
       this.load.on('loaderror',file=>{document.getElementById('load-status').textContent=`素材を読み込めません：${file.key}。再読み込みしてください。`;});
     }
     create(){
-      sceneRef=this;ready=true;this.layer=this.add.container();this.scale.on('resize',()=>{viewKey='';this.paint();});
+      sceneRef=this;ready=true;this.layer=this.add.container();this.scale.on('resize',()=>this.paint());
       this.input.on('pointerdown',p=>{if(current?.mode==='map'&&!document.querySelector('#overlay.active'))this.dragStart={x:p.x,y:p.y,view:{...mapView}};});
       this.input.on('pointermove',p=>{
         if(!p.isDown||!this.dragStart||current?.mode!=='map')return;
@@ -50,8 +50,8 @@ export function bootWorld(){
     paint(){
       const s=current,w=this.scale.width,h=this.scale.height;
       if(!s){this.layer.removeAll(true);this.cover('map-fire',w,h);return;}
-      const battle=s.mode==='battle',key=battle?`${s.map}-${s.battle.enemy.key}-${s.hero}-battle`:`${s.map}-map`;
-      this.tweens.killAll();this.layer.removeAll(true);viewKey=key;
+      const battle=s.mode==='battle';
+      this.tweens.killAll();this.layer.removeAll(true);this.heroSprite=null;this.enemySprite=null;
       if(battle){this.drawBattle(s,w,h);return;}
       const bg=this.cover(MAPS[s.map].asset,w,h);
       if(!s.nodes.length)return;
@@ -91,24 +91,43 @@ export function bootWorld(){
       const terrain=s.nodes[s.node].ring<2?'grass':MAPS[s.map].terrain;
       this.cover(terrain,w,h);
       const shade=this.add.graphics().fillStyle(0x061014,.31).fillRect(0,0,w,h);this.layer.add(shade);
-      const ground=h*.94,heroX=w*.23,enemyX=w*.73;
+      // DOM badges and sprites share the same anchors, including safe-area insets.
+      const bounds=document.getElementById('world').getBoundingClientRect();
+      const player=document.querySelector('.player-badge')?.getBoundingClientRect();
+      const opponent=document.querySelector('.enemy-badge')?.getBoundingClientRect();
+      const ground=player?player.top-bounds.top-7:h*.55;
+      const heroX=player?player.left+player.width/2-bounds.left:w*.24;
+      const enemyX=opponent?opponent.left+opponent.width/2-bounds.left:w*.76;
+      const top=document.querySelector('.combat-header')?.getBoundingClientRect().bottom-bounds.top||50;
+      const actorHeight=Math.max(48,Math.min(h*.43,ground-top-12));
       this.layer.add(this.add.ellipse(heroX,ground-4,w*.19,22,0x05080b,.48));this.layer.add(this.add.ellipse(enemyX,ground-4,w*.25,25,0x05080b,.5));
       const hero=this.add.image(heroX,ground,s.hero).setOrigin(.5,1),enemy=this.add.image(enemyX,ground,s.battle.enemy.key).setOrigin(.5,1);
-      const heroScale=Math.min(h*.82/hero.height,w*.32/hero.width),enemyScale=Math.min(h*.78/enemy.height,w*.40/enemy.width);
+      const heroScale=Math.min(actorHeight/hero.height,w*.27/hero.width),enemyScale=Math.min(actorHeight/enemy.height,w*.31/enemy.width);
       hero.setScale(heroScale);enemy.setScale(enemyScale);this.layer.add([hero,enemy]);this.heroSprite=hero;this.enemySprite=enemy;
       if(!reduced){this.tweens.add({targets:hero,y:ground-3,duration:1800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});this.tweens.add({targets:enemy,y:ground-5,duration:1400,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});}
     }
     cast(base,damage){
       if(!this.enemySprite||current?.mode!=='battle')return;
       const colors={FIRE:0xffa44d,ICE:0x9fe3ff,POISON:0xc1a7ee,STRIKE:0xffedc4,HEAL:0xa4e8ba,SHIELD:0x9dcee5,DRAW:0xe6cd84};
-      const offensive=damage>0,x=offensive?this.enemySprite.x:this.heroSprite.x,y=this.scale.height*.52;
+      const offensive=damage>0,x=offensive?this.enemySprite.x:this.heroSprite.x,y=this.heroSprite.y-this.heroSprite.displayHeight*.5;
       for(let i=0;i<12;i++){const angle=i*Math.PI/6,p=this.add.circle(x,y,3+(i%3),colors[base]||0xf3d397,.9);this.layer.add(p);this.tweens.add({targets:p,x:x+Math.cos(angle)*65,y:y+Math.sin(angle)*60,alpha:0,duration:reduced?50:600,onComplete:()=>p.destroy()});}
       const text=this.add.text(x,y,offensive?`−${damage}`:base,{fontFamily:'Georgia,serif',fontSize:'32px',color:'#fff2d1',stroke:'#182025',strokeThickness:4}).setOrigin(.5);
       this.layer.add(text);this.tweens.add({targets:text,y:y-60,alpha:0,duration:reduced?100:1000,onComplete:()=>text.destroy()});
     }
   }
-  const game=new Phaser.Game({type:Phaser.AUTO,parent:'world',backgroundColor:'#152024',transparent:false,scene:World,
-    scale:{mode:Phaser.Scale.RESIZE,width:window.innerWidth,height:window.innerHeight},render:{antialias:true},audio:{noAudio:true},banner:false});
-  new ResizeObserver(entries=>{const box=entries[0].contentRect;if(game.scale&&box.width&&box.height)game.scale.resize(box.width,box.height);}).observe(document.getElementById('world'));
+  const host=document.getElementById('world');
+  const measure=()=>({width:Math.max(1,Math.round(host.clientWidth)),height:Math.max(1,Math.round(host.clientHeight))});
+  const game=new Phaser.Game({type:Phaser.AUTO,parent:host,backgroundColor:'#152024',transparent:false,scene:World,
+    // One sizing owner. RESIZE plus manual resize() races with Phaser's cached parent size.
+    scale:{mode:Phaser.Scale.NONE,...measure()},render:{antialias:true},audio:{noAudio:true},banner:false});
+  const syncSize=()=>{
+    const {width,height}=measure();
+    if(!game.isBooted)return;
+    if(game.scale.width!==width||game.scale.height!==height)game.scale.resize(width,height);
+    else game.scale.updateBounds();
+  };
+  const observer=new ResizeObserver(syncSize);observer.observe(host);
+  game.events.once('ready',syncSize);
+  game.events.once('destroy',()=>observer.disconnect());
   return game;
 }

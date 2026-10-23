@@ -1,0 +1,171 @@
+/* A stable stage for every scene; reserve a little room around camera cutouts. */
+:root{--screen-left:max(8px,env(safe-area-inset-left,0px));--screen-right:max(8px,env(safe-area-inset-right,0px))}
+#world,#world.map-world,#world.battle-world{inset:0 var(--screen-right) 0 var(--screen-left)!important}
+#world{z-index:0}
+#ui{z-index:1;isolation:isolate}
+#ui,#overlay{left:var(--screen-left);right:var(--screen-right)}
+.game-screen:not(.in-battle){--left:var(--edge);--right:var(--edge)}
+@media(orientation:landscape) and (max-height:600px){
+  :root{--screen-left:max(24px,env(safe-area-inset-left,0px));--screen-right:max(24px,env(safe-area-inset-right,0px))}
+}
+@media(pointer:coarse) and (orientation:landscape){
+  :root{--screen-left:max(30px,env(safe-area-inset-left,0px));--screen-right:max(30px,env(safe-area-inset-right,0px))}
+}
+
+/* Combat UI is floating over the terrain, without a header or footer band. */
+.in-battle{
+  --edge:18px;--top:max(12px,env(safe-area-inset-top,0px));
+  --bottom:max(10px,env(safe-area-inset-bottom,0px));
+  --hand-height:clamp(150px,29dvh,260px);--badge-height:104px;
+}
+.combat-header{position:absolute;top:var(--top);left:var(--edge);right:var(--edge);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none}
+.combat-menu{display:flex;gap:6px}
+.combat-menu .icon-button{width:40px;height:40px;background:#102027b8;backdrop-filter:blur(5px)}
+.combat-clock{display:flex;align-items:center;gap:9px;background:#102027c7;border:1px solid var(--line);padding:7px 12px;font-size:12px;color:#d7c7e1;backdrop-filter:blur(5px)}
+.combat-clock small{display:block;font-size:10px;color:#c4c8c1;margin-top:3px}
+.combat-clock .gold{margin-left:12px;font-size:14px}
+.in-battle .battle-top{inset:auto 0 calc(var(--bottom) + var(--hand-height) + 14px);height:var(--badge-height);display:block}
+.in-battle .player-badge,.in-battle .enemy-badge{
+  position:absolute;top:0;left:24%;transform:translateX(-50%);width:24%;max-width:280px;min-width:0;
+  padding:8px 12px;border:0;border-radius:5px;background:linear-gradient(90deg,#0a191ed9,#0a191eaf);box-shadow:0 3px 15px #0003;
+}
+.in-battle .enemy-badge{left:76%}
+.in-battle .battle-top h2{font-size:15px;margin:0 0 5px;font-weight:500;line-height:1.3}
+.in-battle .player-badge h2{display:flex;align-items:baseline;justify-content:space-between}
+.in-battle .player-badge h2 small{font:12px var(--serif);color:var(--gold)}
+.in-battle .enemy-health{height:17px}
+.in-battle .enemy-health span{font-size:11px;line-height:15px}
+.in-battle .player-health i{background:linear-gradient(90deg,#467d6b,#9bc7a6)}
+.in-battle .status-tags{margin-top:5px;gap:5px;font-size:11px;flex-wrap:wrap}
+.in-battle .status-tags span{padding:1px 4px}
+.in-battle .status-tags .icon{height:13px;width:13px}
+.in-battle .enemy-badge>p{font-size:11px;margin:4px 0 0;line-height:1.2}
+.in-battle .enemy-badge p small{display:inline;font-size:9px;margin-left:5px}
+.in-battle .intent{left:50%;top:calc(var(--top) + 52px);transform:translateX(-50%);width:27%;max-width:310px;padding:10px 13px;gap:6px;background:#102027d6;backdrop-filter:blur(5px);border-radius:4px}
+.in-battle .intent small{font-size:9px;margin-bottom:5px}
+.in-battle .intent strong{font-size:19px}
+.in-battle .intent>div>span{font-size:12px}
+.in-battle .intent .icon-button{width:34px;height:34px}
+.in-battle .decode-button{min-height:34px;padding:6px 0 0;font-size:12px}
+.in-battle .decode-button small{font-size:10px}
+.in-battle .decoded{font-size:12px}
+.in-battle .hand-dock{left:var(--edge);right:var(--edge);bottom:var(--bottom);height:var(--hand-height);padding:0;gap:14px;background:none;border:0;align-items:center;pointer-events:none}
+.in-battle .hand{height:100%;gap:8px;justify-content:safe center;padding:6px 4px 8px;pointer-events:auto}
+.in-battle .hand .spell-card{height:100%;width:clamp(112px,10vw,170px);flex-basis:clamp(112px,10vw,170px);background:linear-gradient(155deg,#28353cf5,#10212bef);box-shadow:0 4px 14px #0007}
+.in-battle .hand .card-top{height:15%}
+.in-battle .hand .energy-gem{height:30px;width:30px;font-size:20px}
+.in-battle .hand .card-art{height:26%}
+.in-battle .hand .card-art>.icon{height:38px;width:38px}
+.in-battle .hand .spell-card h3{font-size:12px;min-height:15px;margin:3px 5px;overflow-wrap:anywhere}
+.in-battle .hand .card-ja{font-size:9px;margin:0 5px 5px;min-height:10px}
+.in-battle .hand .card-effect{font-size:11px;line-height:1.4;margin:0 7px}
+.in-battle .hand .card-rule{margin:3px 8px 6px}
+.in-battle .combat-resource{width:76px;flex:0 0 76px}
+.in-battle .combat-resource>small{font-size:9px;text-shadow:0 1px 4px #000}
+.in-battle .energy-orb{width:54px;height:54px;font-size:29px}
+.in-battle .combat-resource button{background:#102027db;font-size:12px;min-height:44px;margin-top:8px;padding:6px 3px}
+.in-battle .combat-resource button small{font-size:9px}
+.in-battle .turn-controls{position:static;display:block;flex:0 0 144px;background:#102027ba;border-radius:5px;padding:8px}
+.in-battle .turn-controls>span{font-size:10px;margin-bottom:8px}
+.in-battle .turn-controls .primary{width:100%;min-height:44px;font-size:13px;padding:10px 6px}
+.in-battle .turn-controls .text-button{display:block;width:100%;font-size:11px;padding:9px 3px}
+.in-battle .journey-log{bottom:calc(var(--bottom) + var(--hand-height) + 6px);left:38%;right:auto;max-width:24%;font-size:10px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(orientation:landscape) and (max-height:600px){
+  .in-battle{--edge:8px;--top:max(6px,env(safe-area-inset-top,0px));--bottom:max(6px,env(safe-area-inset-bottom,0px));--hand-height:clamp(116px,31dvh,174px);--badge-height:82px}
+  .combat-menu .icon-button{width:34px;height:34px}
+  .combat-clock{font-size:10px;padding:4px 8px}
+  .combat-clock small{font-size:8px;margin-top:1px}
+  .combat-clock .icon{width:17px;height:17px}
+  .combat-clock .gold{font-size:12px;margin-left:4px}
+  .in-battle .battle-top{bottom:calc(var(--bottom) + var(--hand-height) + 8px)}
+  .in-battle .player-badge,.in-battle .enemy-badge{padding:4px 7px;width:26%}
+  .in-battle .battle-top h2{font-size:11px;margin-bottom:3px}
+  .in-battle .player-badge h2 small{font-size:10px}
+  .in-battle .enemy-health{height:13px}
+  .in-battle .enemy-health span{font-size:9px;line-height:11px}
+  .in-battle .status-tags{font-size:9px;margin-top:3px;gap:3px}
+  .in-battle .enemy-badge>p{font-size:9px;margin-top:3px}
+  .in-battle .enemy-badge p small{font-size:8px;margin-left:3px}
+  .in-battle .intent{top:calc(var(--top) + 40px);width:28%;padding:7px 9px;gap:4px}
+  .in-battle .intent small{font-size:7px;margin-bottom:3px}
+  .in-battle .intent strong{font-size:14px}
+  .in-battle .intent>div>span{font-size:10px;margin-top:3px}
+  .in-battle .intent .icon-button{width:28px;height:28px}
+  .in-battle .decode-button{min-height:30px;font-size:10px;padding-top:4px}
+  .in-battle .decode-button small{font-size:8px}
+  .in-battle .decoded{font-size:10px}
+  .in-battle .hand-dock{gap:7px}
+  .in-battle .hand{gap:6px;padding:4px 2px}
+  .in-battle .hand .spell-card{width:clamp(83px,11vw,125px);flex-basis:clamp(83px,11vw,125px)}
+  .in-battle .hand .energy-gem{width:23px;height:23px;font-size:16px}
+  .in-battle .hand .card-top>span:last-child{font-size:4px}
+  .in-battle .hand .card-art{height:23%}
+  .in-battle .hand .card-art>.icon{width:25px;height:25px}
+  .in-battle .hand .spell-card h3{font-size:9px;min-height:11px;margin:2px 4px}
+  .in-battle .hand .card-ja{font-size:7px;margin-bottom:3px;min-height:8px}
+  .in-battle .hand .card-rule{margin:2px 6px 3px}
+  .in-battle .hand .card-effect{font-size:8px;line-height:1.3;margin:0 5px}
+  .in-battle .combat-resource{width:54px;flex-basis:54px}
+  .in-battle .energy-orb{width:38px;height:38px;font-size:24px;margin-bottom:3px}
+  .in-battle .combat-resource>small{font-size:6px}
+  .in-battle .combat-resource button{font-size:10px;min-height:38px;margin-top:5px}
+  .in-battle .combat-resource button small{font-size:7px;margin-top:2px}
+  .in-battle .turn-controls{flex-basis:108px;padding:5px}
+  .in-battle .turn-controls>span{font-size:8px;margin-bottom:5px}
+  .in-battle .turn-controls .primary{min-height:40px;font-size:11px;gap:4px}
+  .in-battle .turn-controls .text-button{font-size:9px;padding:6px 2px}
+  .in-battle .journey-log{display:none}
+}
+@media(min-width:1800px) and (min-height:800px){
+  .in-battle{--edge:28px;--top:20px;--bottom:20px;--hand-height:30dvh;--badge-height:130px}
+  .combat-menu .icon-button{width:52px;height:52px}
+  .combat-clock{font-size:18px;padding:10px 16px}
+  .combat-clock small{font-size:14px}
+  .combat-clock .gold{font-size:21px}
+  .in-battle .player-badge,.in-battle .enemy-badge{max-width:360px;padding:10px 16px}
+  .in-battle .battle-top h2{font-size:21px}
+  .in-battle .player-badge h2 small{font-size:17px}
+  .in-battle .enemy-health{height:23px}
+  .in-battle .enemy-health span{font-size:15px;line-height:21px}
+  .in-battle .status-tags,.in-battle .enemy-badge>p{font-size:15px}
+  .in-battle .enemy-badge p small{font-size:12px}
+  .in-battle .intent{top:calc(var(--top) + 70px);max-width:390px;padding:16px 20px}
+  .in-battle .intent strong{font-size:25px}
+  .in-battle .intent small{font-size:12px}
+  .in-battle .intent>div>span,.in-battle .decode-button,.in-battle .decoded{font-size:16px}
+  .in-battle .decode-button small{font-size:13px}
+  .in-battle .hand .spell-card{width:10vw;flex-basis:10vw}
+  .in-battle .hand .spell-card h3{font-size:17px}
+  .in-battle .hand .card-ja{font-size:13px}
+  .in-battle .hand .card-effect{font-size:15px}
+  .in-battle .hand .card-art>.icon{width:54px;height:54px}
+  .in-battle .combat-resource{flex-basis:100px;width:100px}
+  .in-battle .turn-controls{flex-basis:190px;padding:12px}
+  .in-battle .turn-controls .primary{font-size:17px;min-height:56px}
+}
+@media(orientation:portrait){
+  .in-battle{--edge:6px;--hand-height:210px;--badge-height:105px}
+  .in-battle .player-badge,.in-battle .enemy-badge{width:44%;padding:7px}
+  .in-battle .battle-top h2{font-size:12px}
+  .in-battle .intent{width:56%;top:calc(var(--top) + 50px)}
+  .in-battle .intent strong{font-size:15px}
+  .in-battle .hand-dock{padding-bottom:48px;gap:6px}
+  .in-battle .combat-resource{width:44px;flex-basis:44px}
+  .in-battle .energy-orb{width:36px;height:36px;font-size:23px}
+  .in-battle .combat-resource button{font-size:9px}
+  .in-battle .hand .spell-card{width:112px;flex-basis:112px}
+  .in-battle .hand .spell-card h3{font-size:10px}
+  .in-battle .hand .card-effect{font-size:9px}
+  .in-battle .turn-controls{position:absolute;bottom:0;left:50px;right:0;display:flex;align-items:center;gap:8px;padding:0;background:none}
+  .in-battle .turn-controls>span{margin:0;font-size:8px}
+  .in-battle .turn-controls .primary{margin-left:auto;width:124px;font-size:11px}
+  .in-battle .turn-controls .text-button{width:auto;font-size:9px}
+  .in-battle .journey-log{display:none}
+}
+@media(min-width:3000px) and (min-height:1500px){
+  #ui.game-screen:not(.in-battle){width:auto;height:auto;right:calc(var(--screen-right) / 2);left:calc(var(--screen-left) / 2)}
+}
+@media(min-width:3000px) and (min-height:1500px){
+  #ui.in-battle{zoom:2;left:calc(var(--screen-left) / 2);right:calc(var(--screen-right) / 2);--hand-height:15dvh}
+  .in-battle .hand .spell-card{width:5vw;flex-basis:5vw}
+}
