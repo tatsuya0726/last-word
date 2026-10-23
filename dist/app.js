@@ -1,6 +1,6 @@
 import {WORDS,MAPS,NODE_TYPES} from './data.js';
 import * as E from './engine.js';
-import {bootWorld,setWorld,effect} from './world.js';
+import {bootWorld,setWorld,effect,mapControl} from './world.js';
 
 const $=s=>document.querySelector(s),ui=$('#ui'),overlay=$('#overlay');
 const SAVE='last-word-run-v1',MEMORY='last-word-memory-v1',SETTINGS='last-word-settings-v1';
@@ -87,7 +87,7 @@ function battleUI(){
 function render(){
   if(!state){title();renderModal();return;}
   const battle=state.mode==='battle';ui.className=`game-screen ${battle?'in-battle':''}`;$('#world').className=battle?'battle-world':'map-world';
-  ui.innerHTML=header()+(battle?battleUI():`<div class="map-heading"><p class="eyebrow">${icon('crown')} 目標：中央のボスを撃破</p><h1>${MAPS[state.map].name}</h1></div>${state.mode==='map'?nodePanel()+destinations():''}`)+`<div class="journey-log" aria-live="polite">${esc(state.log.at(-1)||'')}</div>`+nav();
+  ui.innerHTML=header()+(battle?battleUI():`${state.mode==='map'?nodePanel()+destinations():''}<div class="map-tools"><button class="icon-button" data-action="map-zoom" data-id="in" aria-label="マップを拡大">＋</button><button class="icon-button" data-action="map-zoom" data-id="out" aria-label="マップを縮小">−</button><button class="icon-button" data-action="map-zoom" data-id="home" aria-label="現在地へ">${icon('compass')}</button><button class="icon-button" data-action="fullscreen" aria-label="全画面表示">⛶</button></div>`)+`<div class="journey-log" aria-live="polite">${esc(state.log.at(-1)||'')}</div>`+nav();
   setWorld(state,selection,id=>{if(state.mode!=='map'||modal)return;selection=id;render();});renderModal();
 }
 function dialog(title,eyebrow,body,cls='',close=true){return `<div class="modal-backdrop"><section class="modal ${cls}" role="dialog" aria-modal="true" aria-label="${title}"><header><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${close?`<button class="icon-button" data-action="close-modal" aria-label="閉じる">${icon('close')}</button>`:''}</header>${body}</section></div>`;}
@@ -126,6 +126,8 @@ function begin(){state=E.newRun({map:titleMap,hero:titleHero,knowledge:memory});
 function act(fn){try{fn();if(state&&['won','lost'].includes(state.mode))modal=null;persist();render();}catch(e){toast(e.message);}}
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-action]');if(!b||b.disabled)return;const a=b.dataset.action,id=b.dataset.id,index=Number(b.dataset.index);chime();
+  if(a==='map-zoom'){mapControl(id);return;}
+  if(a==='fullscreen'){if(document.fullscreenElement)document.exitFullscreen?.();else if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>toast('この端末では全画面表示を利用できません。'));else toast('この端末では全画面表示を利用できません。');return;}
   if(a==='speak'){speak(b.dataset.text);return;}
   if(a==='map-select'){titleMap=id;title();return;}if(a==='hero-select'){titleHero=id;title();return;}
   if(a==='start'){if(saved&&!['won','lost'].includes(saved.mode)){modal='new-confirm';renderModal();}else begin();return;}
