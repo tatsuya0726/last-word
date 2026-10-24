@@ -169,3 +169,19 @@
   #ui.in-battle{zoom:2;left:calc(var(--screen-left) / 2);right:calc(var(--screen-right) / 2);--hand-height:15dvh}
   .in-battle .hand .spell-card{width:5vw;flex-basis:5vw}
 }
+
+/* Clearly named card zones, readable disabled cards, and keyboard feedback. */
+.pile-controls{display:flex;gap:4px;justify-content:center;margin-bottom:6px}
+.pile-controls button{flex:1;min-height:32px;padding:4px 2px;font-size:11px;border:1px solid var(--line);background:#15262c}
+.pile-controls b{color:var(--gold)}
+.in-battle .hand .spell-card.unaffordable{opacity:.8}
+.in-battle .card-play:disabled{opacity:1}
+.card-unavailable{display:block;font-size:9px;color:#f6d4ac;margin-top:3px}
+.spell-card:has(.card-play:focus-visible){outline:2px solid #fff0b7;outline-offset:-3px}
+.empty-pile{grid-column:1/-1;text-align:center;padding:30px 0;color:var(--muted)}
+@media(orientation:landscape) and (max-height:600px){
+  .pile-controls{gap:3px;margin-bottom:4px}
+  .pile-controls button{font-size:9px;min-height:28px}
+  .card-unavailable{font-size:7px;margin-top:1px}
+}
+@media(orientation:portrait){.pile-controls{margin:0}.pile-controls button{font-size:9px;min-width:40px}}

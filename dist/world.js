@@ -28,7 +28,13 @@ export function bootWorld(){
       this.load.on('loaderror',file=>{document.getElementById('load-status').textContent=`素材を読み込めません：${file.key}。再読み込みしてください。`;});
     }
     create(){
-      sceneRef=this;ready=true;this.layer=this.add.container();this.scale.on('resize',()=>this.paint());
+      sceneRef=this;ready=true;this.layer=this.add.container();
+      this.scale.on('resize',this.paint,this);
+      this.events.once('shutdown',()=>{
+        this.scale.off('resize',this.paint,this);
+        this.dragStart=null;this.mapHits=[];this.heroSprite=null;this.enemySprite=null;
+        if(sceneRef===this){sceneRef=null;ready=false;}
+      });
       this.input.on('pointerdown',p=>{if(current?.mode==='map'&&!document.querySelector('#overlay.active'))this.dragStart={x:p.x,y:p.y,view:{...mapView}};});
       this.input.on('pointermove',p=>{
         if(!p.isDown||!this.dragStart||current?.mode!=='map')return;
@@ -51,6 +57,7 @@ export function bootWorld(){
       const s=current,w=this.scale.width,h=this.scale.height;
       if(!s){this.layer.removeAll(true);this.cover('map-fire',w,h);return;}
       const battle=s.mode==='battle';
+      if(s.mode!=='map'){this.dragStart=null;this.mapHits=[];}
       this.tweens.killAll();this.layer.removeAll(true);this.heroSprite=null;this.enemySprite=null;
       if(battle){this.drawBattle(s,w,h);return;}
       const bg=this.cover(MAPS[s.map].asset,w,h);

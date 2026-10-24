@@ -4,6 +4,7 @@ import {bootWorld,setWorld,effect,mapControl} from './world.js';
 
 const $=s=>document.querySelector(s),ui=$('#ui'),overlay=$('#overlay');
 const SAVE='last-word-run-v1',MEMORY='last-word-memory-v1',SETTINGS='last-word-settings-v1';
+let modalStack=[];
 let state=null,selection=null,modal=null,forgeTokens=[],titleMap='fire',titleHero='hero',toastTimer,notice='';
 let settings=readLocal(SETTINGS,{sound:true,speech:false,hints:true}),memory=readLocal(MEMORY,{}),saved=readLocal(SAVE,null);
 if(!E.validateSave(saved))saved=null;
@@ -42,16 +43,26 @@ function wordHint(w){return settings.hints?WORDS[w].ja:'タップで意味を確
 function cardHtml(c,{play=false,remove=false,preview=false}={}){
   const word=WORDS[c.base],unusable=play&&state.battle.energy<c.cost;
   return `<article class="spell-card ${play?'playable':''} ${unusable?'unaffordable':''}" style="--card-color:${word.color}">
-    ${play?`<button class="card-play" data-action="play" data-id="${c.id}" ${unusable?'disabled':''} aria-label="${c.name}を使う コスト${c.cost}">`:''}
+    ${play?`<button class="card-play" data-action="play" data-id="${c.id}" ${unusable?'disabled':''} aria-label="${c.name}を使う コスト${c.cost} ${E.describe(c)}">`:''}
     <div class="card-top"><span class="energy-gem">${c.cost}</span><span>${c.repeat===2?'COMBINED SPELL':'WORD SPELL'}</span></div>
     <div class="card-art">${icon(word.icon)}${c.repeat===2?`<span class="echo-icon">${icon('double')}</span>`:''}</div>
     <h3>${c.name}</h3><p class="card-ja">${settings.hints?c.tokens.map(w=>WORDS[w].ja.split('・')[0]).join(' × '):' '}</p>
     <div class="card-rule"></div><p class="card-effect">${E.describe(c)}</p>
-    ${play?'</button>':''}
+    ${play?`${unusable?'<span class="card-unavailable">エナジー不足</span>':''}</button>`:''}
     ${!play&&!preview?`<button class="card-audio" data-action="speak" data-text="${c.tokens.join(' ')}" aria-label="${c.name}の発音">${icon('sound')}</button>`:''}
     ${remove?`<button class="card-remove" data-action="remove" data-id="${c.id}">手放す</button>`:''}
   </article>`;
 }
+// Preserve logical focus when event-driven rendering replaces DOM nodes.
+function focusKey(el=document.activeElement){return el?.dataset?.action?{...el.dataset}:null;}
+function restoreFocus(key,root=ui){
+  if(!key)return;
+  const match=[...root.querySelectorAll('[data-action]:not(:disabled)')].find(el=>Object.entries(key).every(([k,v])=>el.dataset[k]===v));
+  (match||(key.action==='play'?root.querySelector('.card-play:not(:disabled),[data-action="end-turn"]'):null))?.focus({preventScroll:true});
+}
+function openModal(name){modalStack.push({name:modal,focus:focusKey()});modal=name;renderModal();}
+function closeModal(){const previous=modalStack.pop();modal=previous?.name??null;renderModal();restoreFocus(previous?.focus,overlay.classList.contains('active')?overlay:ui);}
+function resetModals(){modal=null;modalStack=[];}
 function title(){
   ui.className='title-screen';$('#world').className='title-world';
   ui.innerHTML=`<div class="title-shade"></div><div class="title-top"><span class="small-brand">${icon('book')} A WORDCRAFT ROGUELIKE</span><button class="icon-button" data-action="settings" aria-label="設定">${icon('gear')}</button></div>
@@ -84,17 +95,20 @@ function combatHeader(){
 }
 function battleUI(){
   const b=state.battle,e=b.enemy;
-  return `<div class="battle-top"><section class="player-badge"><h2>プレイヤー <small>Lv.${state.level}</small></h2><div class="enemy-health player-health" role="meter" aria-label="プレイヤーHP" aria-valuemin="0" aria-valuemax="${state.maxHp}" aria-valuenow="${state.hp}"><i style="width:${state.hp/state.maxHp*100}%"></i><span>${state.hp} / ${state.maxHp}</span></div><div class="status-tags"><span>${icon('shield')} ${b.block} ブロック</span></div></section><section class="enemy-badge"><h2>${e.name}</h2><div class="enemy-health"><i style="width:${e.hp/e.maxHp*100}%"></i><span>${e.hp} / ${e.maxHp}</span></div><p>Weak to <b style="color:${WORDS[e.weak].color}">${e.weak}</b> <small>${settings.hints?'弱点 ＋4ダメージ':''}</small></p><div class="status-tags">${e.burn?`<span>火傷 ${e.burn}</span>`:''}${e.poison?`<span>毒 ${e.poison}</span>`:''}${e.slow?`<span>攻撃低下 ${e.slow}</span>`:''}${e.block?`<span>盾 ${e.block}</span>`:''}</div></section></div>
+  return `<div class="battle-top"><section class="player-badge"><h2>プレイヤー <small>Lv.${state.level}</small></h2><div class="enemy-health player-health" role="meter" aria-label="プレイヤーHP" aria-valuemin="0" aria-valuemax="${state.maxHp}" aria-valuenow="${state.hp}"><i style="width:${state.hp/state.maxHp*100}%"></i><span>${state.hp} / ${state.maxHp}</span></div><div class="status-tags"><span>${icon('shield')} ${b.block} ブロック</span></div></section><section class="enemy-badge"><h2>${e.name}</h2><div class="enemy-health" role="meter" aria-label="敵HP" aria-valuemin="0" aria-valuemax="${e.maxHp}" aria-valuenow="${e.hp}"><i style="width:${e.hp/e.maxHp*100}%"></i><span>${e.hp} / ${e.maxHp}</span></div><p>Weak to <b style="color:${WORDS[e.weak].color}">${e.weak}</b> <small>${settings.hints?'弱点 ＋4ダメージ':''}</small></p><div class="status-tags">${e.burn?`<span>火傷 ${e.burn}</span>`:''}${e.poison?`<span>毒 ${e.poison}</span>`:''}${e.slow?`<span>攻撃低下 ${e.slow}</span>`:''}${e.block?`<span>盾 ${e.block}</span>`:''}</div></section></div>
   <div class="intent"><div><small>ENEMY INTENT · TURN ${b.turn}</small><strong>${esc(b.intent.en)}</strong><span>${b.intent.hits?`${Math.max(0,b.intent.damage-e.slow)} × ${b.intent.hits} ダメージ`:'ブロックを獲得'}</span></div><button class="icon-button" data-action="speak" data-text="${b.intent.en}" aria-label="敵の行動予測を聞く">${icon('sound')}</button>${!b.read?'<button class="decode-button" data-action="decode">意味を読む<small>正解で盾＋3</small></button>':`<span class="decoded">${b.intent.ja}</span>`}</div>
-  <section class="hand-dock"><div class="combat-resource"><span class="energy-orb">${b.energy}</span><small>ENERGY</small><button data-action="charge" ${b.charged?'disabled':''}>集中 ＋2<small>霧＋1 / 1回</small></button></div><div class="hand">${b.hand.map(id=>cardHtml(state.deck.find(c=>c.id===id),{play:true})).join('')||'<div class="empty-hand">手札がありません。ターンを終了してください。</div>'}</div><div class="turn-controls"><span>山札 ${b.draw.length} / 捨札 ${b.discard.length}</span><button class="primary" data-action="end-turn">ターン終了 ${icon('arrow')}</button><button class="text-button" data-action="deck">デッキを見る</button></div></section>`;
+  <section class="hand-dock"><div class="combat-resource"><span class="energy-orb">${b.energy}</span><small>ENERGY</small><button data-action="charge" ${b.charged?'disabled':''}>${b.charged?'集中済み':'集中 ＋2'}<small>${b.charged?'次ターンに回復':'霧＋1 / 1回'}</small></button></div><div class="hand">${b.hand.map(id=>cardHtml(state.deck.find(c=>c.id===id),{play:true})).join('')||'<div class="empty-hand">手札がありません。ターンを終了してください。</div>'}</div><div class="turn-controls"><div class="pile-controls"><button data-action="draw-pile" aria-label="山札 ${b.draw.length}枚を見る">山札 <b>${b.draw.length}</b></button><button data-action="discard-pile" aria-label="捨札 ${b.discard.length}枚を見る">捨札 <b>${b.discard.length}</b></button></div><button class="primary" data-action="end-turn">ターン終了 ${icon('arrow')}</button><button class="text-button" data-action="deck">デッキを見る</button></div></section>`;
 }
 function render(){
+  const focused=focusKey();const handScroll=ui.querySelector('.hand')?.scrollLeft??0;
   if(!state){title();renderModal();return;}
   const battle=state.mode==='battle';ui.className=`game-screen ${battle?'in-battle':''}`;$('#world').className=battle?'battle-world':'map-world';
   ui.innerHTML=(battle?combatHeader():header())+(battle?battleUI():`${state.mode==='map'?nodePanel()+destinations():''}<div class="map-tools"><button class="icon-button" data-action="map-zoom" data-id="in" aria-label="マップを拡大">＋</button><button class="icon-button" data-action="map-zoom" data-id="out" aria-label="マップを縮小">−</button><button class="icon-button" data-action="map-zoom" data-id="home" aria-label="現在地へ">${icon('compass')}</button><button class="icon-button" data-action="fullscreen" aria-label="全画面表示">⛶</button></div>`)+`<div class="journey-log" aria-live="polite">${esc(state.log.at(-1)||'')}</div>`+(battle?'':nav());
   setWorld(state,selection,id=>{if(state.mode!=='map'||modal)return;selection=id;render();});renderModal();
+  if(ui.querySelector('.hand'))ui.querySelector('.hand').scrollLeft=handScroll;
+  if(!overlay.classList.contains('active'))restoreFocus(focused);
 }
-function dialog(title,eyebrow,body,cls='',close=true){return `<div class="modal-backdrop"><section class="modal ${cls}" role="dialog" aria-modal="true" aria-label="${title}"><header><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${close?`<button class="icon-button" data-action="close-modal" aria-label="閉じる">${icon('close')}</button>`:''}</header>${body}</section></div>`;}
+function dialog(title,eyebrow,body,cls='',close=true){return `<div class="modal-backdrop"><section class="modal ${cls}" role="dialog" tabindex="-1" aria-modal="true" aria-label="${title}"><header><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${close?`<button class="icon-button" data-action="close-modal" aria-label="閉じる">${icon('close')}</button>`:''}</header>${body}</section></div>`;}
 function forgeView(){
   let spec=null,error='基本語を1つ選んでください。';try{spec=E.cardSpec(forgeTokens);}catch(e){error=e.message;}
   const inv=state.inventory;
@@ -112,6 +126,11 @@ function renderModal(){
   let html='';
   if(modal==='forge'&&state)html=forgeView();
   else if(modal==='deck'&&state)html=dialog('デッキ','DECK',`<p class="modal-intro">${state.deck.length} / ${E.MAX_DECK}枚 / 下限5枚 / 破棄：素材返却なし</p><div class="deck-grid">${state.deck.map(c=>cardHtml(c,{remove:['map','forge','camp'].includes(state.mode)})).join('')}</div>`,'deck-modal');
+  else if(['draw-pile','discard-pile'].includes(modal)&&state?.mode==='battle'){
+    const draw=modal==='draw-pile',ids=state.battle[draw?'draw':'discard'];
+    const cards=ids.map(id=>state.deck.find(c=>c.id===id)).sort((a,b)=>a.name.localeCompare(b.name)||a.cost-b.cost);
+    html=dialog(draw?'山札':'捨札','CARDS',`<p class="modal-intro">${cards.length}枚 · 名前順${draw?'（引く順番ではありません）':' · 山札がなくなるとシャッフルして戻ります'}</p><div class="deck-grid">${cards.map(c=>cardHtml(c)).join('')||'<p class="empty-pile">カードはありません。</p>'}</div>`,'deck-modal');
+  }
   else if(modal==='dictionary')html=dialog('単語帳','DICTIONARY',`<p class="modal-intro">学習記録：自動保存</p><div class="dictionary">${Object.entries(WORDS).map(([w,v])=>{const k=(state?.knowledge||memory)[w];return `<div class="dictionary-row ${k?'learned':''}"><div class="dict-symbol" style="color:${v.color}">${icon(v.icon)}</div><div><b>${w}</b><span>${v.ja}</span><small>${v.example} <em>${v.translation}</em></small></div><div class="dict-stats">${k?`遭遇 ${k.seen}<small>正解 ${k.correct} / 復習 ${k.wrong}</small>`:'未発見'}</div><button class="icon-button" data-action="speak" data-text="${w}. ${v.example}" aria-label="${w}の発音">${icon('sound')}</button></div>`;}).join('')}</div>`,'dictionary-modal');
   else if(modal==='decode'&&state?.battle)html=dialog('行動予測','READ THE ENEMY',`<blockquote>${state.battle.intent.en}</blockquote><div class="answers">${E.intentChoices().map((a,i)=>`<button data-action="intent-answer" data-index="${i}">${i+1}<span>${a}</span></button>`).join('')}</div><p class="footnote">正解：盾＋3 ／ 不正解：追加効果なし</p>`);
   else if(modal==='settings')html=dialog('設定','SETTINGS',`<div class="settings-list">${[['sound','効果音','合成・操作時に音を鳴らす'],['speech','単語の自動読み上げ','カード使用時に英語を読む'],['hints','日本語ヒント','単語と弱点の補助を表示']].map(([k,t,d])=>`<button data-action="toggle-setting" data-id="${k}" class="setting-row"><span><strong>${t}</strong><small>${d}</small></span><span class="toggle ${settings[k]?'on':''}">${settings[k]?'ON':'OFF'}</span></button>`).join('')}</div><p class="footnote"></p>`);
@@ -123,28 +142,33 @@ function renderModal(){
   else if(state?.mode==='camp')html=dialog('休息','A MOMENT OF REST',`<div class="location-symbol">${icon('camp')}</div><p class="modal-intro">♥ ${state.hp} / ${state.maxHp} → ${Math.min(state.maxHp,state.hp+24)} / ${state.maxHp}</p><div class="stack"><button class="primary" data-action="rest">休息する <small>HP＋24 / 時間＋4</small></button><button class="secondary" data-action="forge">合成</button><button class="text-button" data-action="leave">スキップ</button></div>`,'',false);
   else if(state?.mode==='forge')html=dialog('言葉の鍛冶場','THE KEEPER OF LOST WORDS',`<div class="smith-layout"><img src="./assets/smith.webp" alt="言葉の鍛冶師"><div><strong>所持金：${state.gold} ◈</strong></div></div><div class="shop-words">${['FIRE','ICE','SHIELD','HEAL','DOUBLE','POWER'].map(w=>`<button data-action="buy" data-id="${w}" ${state.gold<12?'disabled':''}><b>${w}</b><small>${WORDS[w].ja}</small><span>12金 / 霧＋1</span></button>`).join('')}</div><div class="stack"><button class="primary" data-action="forge">合成</button><button class="text-button" data-action="leave">鍛冶場を出る</button></div>`,'',false);
   else if(state&&['won','lost'].includes(state.mode)){const won=state.mode==='won';html=dialog(won?'CLEAR':'GAME OVER','RESULT',`<div class="ending-symbol">${icon(won?'crown':'book')}</div><p class="ending-copy">${state.reason}</p><div class="run-stats"><div><b>${state.stats.battles}</b><span>戦闘勝利</span></div><div><b>${state.stats.crafted}</b><span>合成したカード</span></div><div><b>${state.stats.correct}</b><span>英語の解読成功</span></div></div><p class="footnote">✓ 単語帳を保存</p><button class="primary wide" data-action="title">タイトルへ ${icon('arrow')}</button>`,'ending-modal',false);}
-  const changed=overlay.innerHTML!==html;overlay.innerHTML=html;overlay.classList.toggle('active',!!html);
-  if(changed&&html)requestAnimationFrame(()=>overlay.querySelector('button:not([disabled])')?.focus({preventScroll:true}));
+  const focused=overlay.contains(document.activeElement)?focusKey():null;
+  const changed=overlay.innerHTML!==html;if(changed)overlay.innerHTML=html;overlay.classList.toggle('active',!!html);
+  ui.inert=!!html;document.getElementById('world').inert=!!html;
+  if(changed&&html){
+    (overlay.querySelector('button:not([disabled])')||overlay.querySelector('[role="dialog"]'))?.focus({preventScroll:true});
+    restoreFocus(focused,overlay);
+  }
 }
-function begin(){state=E.newRun({map:titleMap,hero:titleHero,knowledge:memory});selection=state.nodes[0].links.find(id=>state.nodes[id].type==='cache')??1;modal=null;forgeTokens=[];persist();render();toast(`単語素材 ${Object.values(state.inventory).reduce((a,b)=>a+b,0)} / デッキ ${state.deck.length}`);}
-function act(fn){try{fn();if(state&&['won','lost'].includes(state.mode))modal=null;persist();render();}catch(e){toast(e.message);}}
+function begin(){state=E.newRun({map:titleMap,hero:titleHero,knowledge:memory});selection=state.nodes[0].links.find(id=>state.nodes[id].type==='cache')??1;resetModals();forgeTokens=[];persist();render();toast(`単語素材 ${Object.values(state.inventory).reduce((a,b)=>a+b,0)} / デッキ ${state.deck.length}`);}
+function act(fn){try{fn();if(state&&['won','lost'].includes(state.mode))resetModals();persist();render();}catch(e){toast(e.message);}}
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-action]');if(!b||b.disabled)return;const a=b.dataset.action,id=b.dataset.id,index=Number(b.dataset.index);chime();
   if(a==='map-zoom'){mapControl(id);return;}
   if(a==='fullscreen'){if(document.fullscreenElement)document.exitFullscreen?.();else if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>toast('この端末では全画面表示を利用できません。'));else toast('この端末では全画面表示を利用できません。');return;}
   if(a==='speak'){speak(b.dataset.text);return;}
   if(a==='map-select'){titleMap=id;title();return;}if(a==='hero-select'){titleHero=id;title();return;}
-  if(a==='start'){if(saved&&!['won','lost'].includes(saved.mode)){modal='new-confirm';renderModal();}else begin();return;}
+  if(a==='start'){if(saved&&!['won','lost'].includes(saved.mode)){openModal('new-confirm');}else begin();return;}
   if(a==='start-confirm'){begin();return;}
-  if(a==='continue'){state=structuredClone(saved);selection=state.node;modal=null;render();return;}
-  if(a==='title'){persist();state=null;modal=null;render();return;}
-  if(['settings','help','dictionary','pause','deck'].includes(a)){modal=a;renderModal();return;}
-  if(a==='close-modal'){modal=null;renderModal();return;}
+  if(a==='continue'){state=structuredClone(saved);selection=state.node;resetModals();render();return;}
+  if(a==='title'){persist();state=null;resetModals();render();return;}
+  if(['settings','help','dictionary','pause','deck','draw-pile','discard-pile'].includes(a)){openModal(a);return;}
+  if(a==='close-modal'){closeModal();return;}
   if(a==='toggle-setting'){settings[id]=!settings[id];persist();render();return;}
-  if(a==='forge'){if(!['map','forge','camp'].includes(state?.mode)){toast('単語合成は探索中に行えます。');return;}forgeTokens=[];modal='forge';renderModal();return;}
+  if(a==='forge'){if(!['map','forge','camp'].includes(state?.mode)){toast('単語合成は探索中に行えます。');return;}forgeTokens=[];openModal('forge');return;}
   if(a==='forge-token'){if(forgeTokens.includes(id))forgeTokens=forgeTokens.filter(w=>w!==id);else{if(WORDS[id].type==='base')forgeTokens=forgeTokens.filter(w=>WORDS[w].type!=='base');if(forgeTokens.length>=4){toast('単語は4個までです。');return;}forgeTokens.push(id);}renderModal();return;}
   if(a==='select-node'){selection=Number(id);render();return;}
-  if(a==='decode'){modal='decode';renderModal();return;}
+  if(a==='decode'){openModal('decode');return;}
   act(()=>{
     if(a==='travel'){E.moveTo(state,Number(id));selection=state.node;}
     else if(a==='craft'){const c=E.craft(state,forgeTokens);forgeTokens=[];chime('forge');toast(`${c.name}を作りました。`);}
@@ -152,7 +176,7 @@ document.addEventListener('click',ev=>{
     else if(a==='play'){const card=state.deck.find(c=>c.id===id);const r=E.playCard(state,id);if(settings.speech)speak(card.tokens.join(' '));chime('hit');requestAnimationFrame(()=>effect(r.base,r.damage));}
     else if(a==='end-turn')E.endTurn(state);
     else if(a==='charge')E.charge(state);
-    else if(a==='intent-answer'){const correct=E.readIntent(state,index);modal=null;toast(correct?'解読成功。3ブロック獲得！':state.battle.intent.ja);}
+    else if(a==='intent-answer'){const correct=E.readIntent(state,index);closeModal();toast(correct?'解読成功。3ブロック獲得！':state.battle.intent.ja);}
     else if(a==='reward-select'){E.chooseReward(state,id);if(settings.speech)speak(id);}
     else if(a==='reward-answer')E.claimReward(state,index);
     else if(a==='reward-close')E.closeReward(state);
@@ -163,7 +187,7 @@ document.addEventListener('click',ev=>{
   });
 });
 document.addEventListener('keydown',ev=>{
-  if(ev.key==='Escape'){ev.preventDefault();modal=modal?null:'pause';renderModal();}
+  if(ev.key==='Escape'){ev.preventDefault();if(modal)closeModal();else if(!overlay.classList.contains('active')&&state)openModal('pause');}
   if(ev.key==='Tab'&&overlay.classList.contains('active')){const bs=[...overlay.querySelectorAll('button:not([disabled]),a[href],input')];if(bs.length){const first=bs[0],last=bs.at(-1);if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus();}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus();}}}
 });
 window.addEventListener('pagehide',persist);

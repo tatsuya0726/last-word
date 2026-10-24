@@ -83,6 +83,35 @@ try{
     await page.locator('.destinations [data-id="23"]').click();await action('travel').click();await geometry(`${name} second battle`);
     console.log(`PASS ${name}: battle → reward → map, uniform canvas, safe bounds`);
   }
+  // Nested screens return to their parent, and modal inspection never mutates combat.
+  await page.setViewportSize({width:852,height:393});await seed();
+  const savedBefore=await page.evaluate(()=>localStorage.getItem('last-word-run-v1'));
+  await action('pause').click();await action('help').click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('[role="dialog"][aria-label="メニュー"]').count(),1);
+  assert.equal(await action('help').evaluate(el=>el===document.activeElement),true);
+  await page.keyboard.press('Escape');
+  assert.equal(await action('pause').evaluate(el=>el===document.activeElement),true);
+  for(const [name,zone] of [['draw-pile','draw'],['discard-pile','discard']]){
+    await action(name).click();
+    assert.equal(await page.locator('#ui').evaluate(el=>el.inert),true);
+    assert.equal(await page.locator('#overlay .spell-card').count(),fixture.battle[zone].length);
+    await page.keyboard.press('Escape');
+    assert.equal(await action(name).evaluate(el=>el===document.activeElement),true);
+  }
+  assert.equal(await page.evaluate(()=>localStorage.getItem('last-word-run-v1')),savedBefore);
+  // Focus survives a full HUD repaint (settings) and a card leaving the hand.
+  await action('settings').click();await action('toggle-setting').filter({hasText:'日本語ヒント'}).click();
+  assert.equal(await page.locator('[data-action="toggle-setting"][data-id="hints"]').evaluate(el=>el===document.activeElement),true);
+  await page.keyboard.press('Escape');
+  await page.locator('.card-play:not(:disabled)').first().focus();await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>document.activeElement.matches('.card-play:not(:disabled),[data-action="end-turn"]')),true);
+  await geometry('keyboard card play');
+  await page.screenshot({path:path.join(out,'phone-card-zones.png')});
+  // Shutdown/start must not retain resize listeners or stale map pointers.
+  await page.evaluate(()=>window.__qaGame.scene.getScene('world').scene.restart());
+  await page.waitForTimeout(250);await geometry('scene restart');
+  console.log('PASS modal stack, focus return, read-only piles, keyboard play and scene restart');
   // Rotate during combat, then return to landscape without reloading the scene.
   await page.setViewportSize({width:852,height:393});await seed();
   for(const [width,height] of [[393,852],[852,393],[1280,720]]){await page.setViewportSize({width,height});await page.waitForTimeout(160);await geometry(`rotation ${width}x${height}`);}
